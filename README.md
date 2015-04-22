@@ -10,6 +10,10 @@ java -jar crypto015.jar [OPTION...]
 ```
 
 ##Options
-+ ```bash --generate-key PATH [KEY_SIZE]```
++ ``` 
+--generate-key PATH [KEY_SIZE] 
+```
    Print the key to the specified path, the key size (128|192|256) can be set, default is 256.
-+ ```bash--encrypt-cbc INPUT_PATH OUTPUT_PATH [KEY_PATH]```
++ ```
+--encrypt-cbc INPUT_PATH OUTPUT_PATH [KEY_PATH]
+```
