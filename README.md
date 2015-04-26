@@ -16,4 +16,17 @@ java -jar crypto015.jar [OPTION...]
 + ``` --read-key [PATH]```
 
    Read a key from a given file
-+ ```--encrypt-cbc INPUT_PATH OUTPUT_PATH [KEY_PATH] ```
++ ```--encrypt INPUT_PATH OUTPUT_PATH [KEY] [MODE] ```
+
+  Encrypt an input file to an output file
+  and an output path.
+
+  *INPUT_PATH* - File path for the input
+
+  *OUTPUT_PATH* - File path to output, if not present it will be created
+
+  *KEY* - Key for encryption
+
+  *MODE* - Chaining mode. Either "CBC" or "CBF".
+
+  Example usage: ``` ---encrypt C:\\Path\to\File.txt C:\\Output.txt "ansvsgxbsichfvns8590f" CBC```

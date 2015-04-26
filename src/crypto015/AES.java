@@ -9,7 +9,7 @@ import java.io.UnsupportedEncodingException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
+import java.security.SecureRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
@@ -20,6 +20,8 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.apache.commons.codec.binary.Base64;
+import sun.misc.BASE64Encoder;
 
 /**
  *
@@ -32,7 +34,7 @@ public class AES {
 
     public AES() {
         this.key_size = 256; //default set to 256 bit
-        this.key = generateKey(); //Generate the key at start
+        this.key = null;
     }
 
     public int getKeySize() {
@@ -41,7 +43,6 @@ public class AES {
 
     public void setKeySize(int key_size) {
         this.key_size = key_size;
-        this.key = generateKey(); //Regenerate secure key
     }
 
     public SecretKey getKey() {
@@ -66,21 +67,46 @@ public class AES {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
         keyGen.init(this.getKeySize());
-        return keyGen.generateKey();
+        setKey(keyGen.generateKey());
+        return getKey();
     }
 
-    public void encryptCBC(String message, SecretKey key) throws InvalidKeyException, InvalidAlgorithmParameterException {
-        byte[] iv = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-        IvParameterSpec ivspec = new IvParameterSpec(iv);
+    /**
+     * Encrytp message given
+     *
+     * @param message - Input text to be encrypted
+     * @param key - Key for encryption
+     * @param mode -
+     * @return
+     * @throws InvalidKeyException
+     * @throws InvalidAlgorithmParameterException
+     */
+    public String encrypt(String message, String key, String mode) throws InvalidKeyException, InvalidAlgorithmParameterException {
+        byte[] iv = new byte[16];//Initialization vector
+
         Cipher cipher = null;
         try {
-            cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-        } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchPaddingException ex) {
+            switch (mode) {
+                case "CBC":
+                    iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+                    cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");//Use PKCS5Padding to handle input not mutiple of 16
+                    break;
+                case "CFB":
+                    iv = (new SecureRandom()).generateSeed(16);
+                    cipher = Cipher.getInstance("AES/CFB/PKCS5Padding");
+                    break;
+                default:
+            }
+
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
-        cipher.init(Cipher.ENCRYPT_MODE, generateKey(), ivspec);
+
+        byte[] encodedKey = Base64.decodeBase64(key);
+
+        SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
+        IvParameterSpec ivspec = new IvParameterSpec(iv);
+        cipher.init(Cipher.ENCRYPT_MODE, originalKey, ivspec);
 
         byte[] encrypted = null;
         try {
@@ -88,8 +114,8 @@ public class AES {
         } catch (IllegalBlockSizeException | BadPaddingException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
-        System.out.println("Ciphertext: " + encodeHex(encrypted) + "\n");
-
+        System.out.println("Ciphertext: " + toHex(encrypted) + "\n");
+        return toHex(encrypted);
     }
 
     /**
@@ -99,14 +125,12 @@ public class AES {
      */
     public void printKeytoFile(String path) {
 
-        byte[] encoded = this.getKey().getEncoded();
+        byte[] encoded = generateKey().getEncoded();
         try (PrintWriter writer = new PrintWriter(path, "UTF-8")) {
             System.out.println(this.getKeySize() + " bit key: ");
-            for (byte b : encoded) {
-                writer.printf("%2X",b);
-                System.out.printf("%2X", b);
-            }
-            writer.println();
+            String encodedKey = toHex(encoded);
+            System.out.println(encodedKey);
+            writer.print(encodedKey);
             writer.close();
         } catch (FileNotFoundException | UnsupportedEncodingException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
@@ -134,9 +158,9 @@ public class AES {
         } catch (IOException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
         try {
-            System.out.println("File path: "+keyfile.getCanonicalPath()+"\nI have got this key: " + encodeHex(keybyte));
+            System.out.println("File path: " + keyfile.getCanonicalPath() + "\nI have got this key: " + toHex(keybyte));
         } catch (IOException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -147,24 +171,27 @@ public class AES {
      * *
      * Encode to hex a byte array
      *
-     * @param code - the byte array
+     * @param data
      * @return the resulting String
      */
-    public String encodeHex(byte[] code) {
-        if (code == null || code.length == 0) {
+    public String toHex(byte[] input) {
+        if (input == null || input.length == 0) {
             return "";
         }
-        StringBuilder output = new StringBuilder(code.length * 2);
 
-        for (byte b : code) {
-            if (b < 0x10) {
+        int inputLength = input.length;
+        StringBuilder output = new StringBuilder(inputLength * 2);
+
+        for (int i = 0; i < inputLength; i++) {
+            int next = input[i] & 0xff;
+            if (next < 0x10) {
                 output.append("0");
             }
-            output.append(Integer.toHexString(0xff & b));
+
+            output.append(Integer.toHexString(next));
         }
 
         return output.toString();
-
     }
 
     public void demoEncryption() {

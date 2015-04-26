@@ -1,8 +1,11 @@
 package crypto015;
 
-import java.io.FileNotFoundException;
-import java.io.UnsupportedEncodingException;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -46,10 +49,44 @@ public class Main {
                     aes.loadKeyfromFile(Paths.get(args[1]).toFile());
                 }
                 break;
-            case "--encrypt-cbc":
+            case "--encrypt":
+                if (args.length < 3) {
+                    System.err.println("Please provide correct arguments for encrypt operation: INPUT_PATH OUTPUT_PATH [KEY] [MODE]");
+                    System.exit(1);
+                } else if (!Paths.get(args[1]).toFile().canRead() || args[2] == null) {
+                    System.err.println("Please provide valid paths!");
+                    System.exit(1);
+                } else {
+                    String in = "";
+                    try {
+                        in = readFile(args[1], Charset.defaultCharset());
+                    } catch (IOException ex) {
+                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    if (args[3] == null) {
+                        System.err.println("Please provide valid key!");
+                        System.exit(1);
+                    } else {
+                        try {
+                            switch (args[4]) {
+                                case "CBC": {
+                                    String out = aes.encrypt(in, args[3], "CBC");
+                                    break;
+                                }
+                                case "CFB": {
+                                    String out = aes.encrypt(in, args[3], "CFB");
+                                    break;
+                                }
+                                default:
+                                    System.err.println("Please provide a valid ncryption mode (CBC|CFB)!");
+                                    System.exit(1);
+                            }
+                        } catch (InvalidKeyException | InvalidAlgorithmParameterException ex) {
+                            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                }
 
-                break;
-            case "--encrypt-cfb":
                 break;
 
             case "--decrypt":
@@ -63,5 +100,18 @@ public class Main {
         System.out.println();
         System.exit(0);
 
+    }
+
+    /**
+     * Read file to single String
+     * @param path
+     * @param encoding
+     * @return String 
+     * @throws IOException 
+     */
+    private static String readFile(String path, Charset encoding)
+            throws IOException {
+        byte[] encoded = Files.readAllBytes(Paths.get(path));
+        return new String(encoded, encoding);
     }
 }
