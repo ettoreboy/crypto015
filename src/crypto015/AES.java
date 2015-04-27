@@ -20,8 +20,6 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import org.apache.commons.codec.binary.Base64;
-import sun.misc.BASE64Encoder;
 
 /**
  *
@@ -81,7 +79,7 @@ public class AES {
      * @throws InvalidKeyException
      * @throws InvalidAlgorithmParameterException
      */
-    public String encrypt(String message, String key, String mode) throws InvalidKeyException, InvalidAlgorithmParameterException {
+    public byte[] encrypt(String message, String key, String mode) throws InvalidKeyException, InvalidAlgorithmParameterException {
         byte[] iv = new byte[16];//Initialization vector
 
         Cipher cipher = null;
@@ -93,6 +91,7 @@ public class AES {
                     break;
                 case "CFB":
                     iv = (new SecureRandom()).generateSeed(16);
+                    System.out.println("Random generated vector for CFB: "+toHex(iv) +"\nSave it somewhere safe!" );
                     cipher = Cipher.getInstance("AES/CFB/PKCS5Padding");
                     break;
                 default:
@@ -102,7 +101,7 @@ public class AES {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        byte[] encodedKey = Base64.decodeBase64(key);
+        byte[] encodedKey = toByteArray(key);
 
         SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
         IvParameterSpec ivspec = new IvParameterSpec(iv);
@@ -115,7 +114,7 @@ public class AES {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
         System.out.println("Ciphertext: " + toHex(encrypted) + "\n");
-        return toHex(encrypted);
+        return encrypted;
     }
 
     /**
@@ -174,7 +173,7 @@ public class AES {
      * @param data
      * @return the resulting String
      */
-    public String toHex(byte[] input) {
+    public static String toHex(byte[] input) {
         if (input == null || input.length == 0) {
             return "";
         }
@@ -193,15 +192,69 @@ public class AES {
 
         return output.toString();
     }
+    
+    /**
+     * Convert String to byte array, to be used when parsing input from the user
+     * @param s
+     * @return 
+     */
+    public static byte[] toByteArray(String s) {
+    int len = s.length();
+    byte[] data = new byte[len / 2];
+    for (int i = 0; i < len; i += 2) {
+        data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                             + Character.digit(s.charAt(i+1), 16));
+    }
+    return data;
+}
+
+    /**
+     * 
+     * @param message
+     * @param key
+     * @param mode
+     * @return
+     * @throws InvalidKeyException
+     * @throws InvalidAlgorithmParameterException 
+     */
+    public String decrypt(byte[] message, String key, String mode, byte [] iv) throws InvalidKeyException, InvalidAlgorithmParameterException {
+
+        Cipher cipher = null;
+        try {
+            switch (mode) {
+                case "CBC":
+                    iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+                    cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");//Use PKCS5Padding to handle input not mutiple of 16
+                    break;
+                case "CFB":
+                    cipher = Cipher.getInstance("AES/CFB/PKCS5Padding");
+                    break;
+            }
+
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {
+            Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        byte[] encodedKey = toByteArray(key);
+
+        SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
+        IvParameterSpec ivspec = new IvParameterSpec(iv);
+        cipher.init(Cipher.DECRYPT_MODE, originalKey, ivspec);
+
+        byte[] decrypted = null;
+        try {
+            decrypted = cipher.doFinal(message);
+        } catch (IllegalBlockSizeException | BadPaddingException ex) {
+            Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.out.println("Decrypted: " + new String(decrypted) +"\n");
+        return new String(decrypted);
+    }
 
     public void demoEncryption() {
 
         String message = "This string contains a secret message.";
         System.out.println("Plaintext: " + message + "\n");
-
-    }
-
-    public void decrypt(String encoded_message) {
 
     }
 

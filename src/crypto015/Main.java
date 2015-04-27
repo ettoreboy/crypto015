@@ -1,8 +1,10 @@
 package crypto015;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -54,7 +56,7 @@ public class Main {
                     System.err.println("Please provide correct arguments for encrypt operation: INPUT_PATH OUTPUT_PATH [KEY] [MODE]");
                     System.exit(1);
                 } else if (!Paths.get(args[1]).toFile().canRead() || args[2] == null) {
-                    System.err.println("Please provide valid paths!");
+                    System.err.println("Please provide valid paths! Program terminating..");
                     System.exit(1);
                 } else {
                     String in = "";
@@ -64,24 +66,37 @@ public class Main {
                         Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     if (args[3] == null) {
-                        System.err.println("Please provide valid key!");
+                        System.err.println("Please provide valid key path! Program terminating..");
                         System.exit(1);
                     } else {
+                        String key = "";
+                        try {
+                            key = readFile(args[3], Charset.defaultCharset());
+                        } catch (IOException ex) {
+                            System.out.println("Please provide a valid key path! Program terminating..");
+                            System.exit(1);
+                        }
+                        byte[] out = null;
                         try {
                             switch (args[4]) {
                                 case "CBC": {
-                                    String out = aes.encrypt(in, args[3], "CBC");
+                                    out = aes.encrypt(in, key, "CBC");
                                     break;
                                 }
                                 case "CFB": {
-                                    String out = aes.encrypt(in, args[3], "CFB");
+                                    out = aes.encrypt(in, key, "CFB");
                                     break;
                                 }
                                 default:
-                                    System.err.println("Please provide a valid ncryption mode (CBC|CFB)!");
+                                    System.err.println("Please provide a valid ncryption mode (CBC|CFB)! Program terminating..");
                                     System.exit(1);
                             }
-                        } catch (InvalidKeyException | InvalidAlgorithmParameterException ex) {
+                            Path outputPath = Paths.get(args[2]);
+                            Files.createFile(outputPath);
+                            FileOutputStream outStream = new FileOutputStream(outputPath.toFile());
+                            outStream.write(out);
+                            outStream.close();
+                        } catch (InvalidKeyException | InvalidAlgorithmParameterException | IOException ex) {
                             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     }
@@ -90,10 +105,61 @@ public class Main {
                 break;
 
             case "--decrypt":
+                if (args.length < 3) {
+                    System.err.println("Please provide correct arguments for decrypt operation: INPUT_PATH OUTPUT_PATH [KEY] [MODE]");
+                    System.exit(1);
+                } else if (!Paths.get(args[1]).toFile().canRead() || args[2] == null) {
+                    System.err.println("Please provide valid paths! Program terminating..");
+                    System.exit(1);
+                } else {
+                    byte[] in = null;
+                    try {
+                        in = readFile(args[1]);
+                    } catch (IOException ex) {
+                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    if (args[3] == null) {
+                        System.err.println("Please provide valid key path! Program terminating..");
+                        System.exit(1);
+                    } else {
+                        String out = "";
+                        String key = "";
+                        try {
+                            key = readFile(args[3], Charset.defaultCharset());
+                        } catch (IOException ex) {
+                            System.out.println("Please provide a valid key path! Program terminating..");
+                            System.exit(1);
+                        }
+                        try {
+                            switch (args[4]) {
+                                case "CBC": {
+                                    out = aes.decrypt(in, key, "CBC", null);
+                                    break;
+                                }
+                                case "CFB": {
+                                    if (args[5] != null) {
+                                        out = aes.decrypt(in, key, "CFB", AES.toByteArray(args[5]));
+                                    }
+                                    break;
+                                }
+                                default:
+                                    System.err.println("Please provide a valid decryption mode (CBC|CFB)! Program terminating..");
+                                    System.exit(1);
+                            }
+                            Path outputPath = Paths.get(args[2]);
+                            Files.createFile(outputPath);
+                            FileOutputStream outStream = new FileOutputStream(outputPath.toFile());
+                            outStream.write(out.getBytes());
+                            outStream.close();
+                        } catch (InvalidKeyException | InvalidAlgorithmParameterException | IOException ex) {
+                            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                }
                 break;
 
             default:
-                System.err.println("Please provide a valid command!");
+                System.err.println("Please provide a valid command! Program terminating..");
                 System.exit(1);
 
         }
@@ -104,14 +170,21 @@ public class Main {
 
     /**
      * Read file to single String
+     *
      * @param path
      * @param encoding
-     * @return String 
-     * @throws IOException 
+     * @return String
+     * @throws IOException
      */
     private static String readFile(String path, Charset encoding)
             throws IOException {
         byte[] encoded = Files.readAllBytes(Paths.get(path));
         return new String(encoded, encoding);
+    }
+
+    private static byte[] readFile(String path)
+            throws IOException {
+
+        return Files.readAllBytes(Paths.get(path));
     }
 }
