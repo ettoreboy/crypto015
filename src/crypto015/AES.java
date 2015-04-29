@@ -86,12 +86,14 @@ public class AES {
         try {
             switch (mode) {
                 case "CBC":
+                    System.out.println("ENCRYPTION MODE: Chaining Block Cipher");
                     iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
                     cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");//Use PKCS5Padding to handle input not mutiple of 16
                     break;
                 case "CFB":
+                    System.out.println("ENCRYPTION MODE: Chaining Feedback");
                     iv = (new SecureRandom()).generateSeed(16);
-                    System.out.println("Random generated vector for CFB: "+toHex(iv) +"\nSave it somewhere safe!" );
+                    System.out.println("Random generated vector for CFB: " + toHex(iv) + "\nSave it somewhere safe!");
                     cipher = Cipher.getInstance("AES/CFB/PKCS5Padding");
                     break;
                 default:
@@ -170,7 +172,7 @@ public class AES {
      * *
      * Encode to hex a byte array
      *
-     * @param data
+     * @param input the byte array to be parsed
      * @return the resulting String
      */
     public static String toHex(byte[] input) {
@@ -192,32 +194,34 @@ public class AES {
 
         return output.toString();
     }
-    
-    /**
-     * Convert String to byte array, to be used when parsing input from the user
-     * @param s
-     * @return 
-     */
-    public static byte[] toByteArray(String s) {
-    int len = s.length();
-    byte[] data = new byte[len / 2];
-    for (int i = 0; i < len; i += 2) {
-        data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                             + Character.digit(s.charAt(i+1), 16));
-    }
-    return data;
-}
 
     /**
-     * 
-     * @param message
-     * @param key
-     * @param mode
+     * Convert String to byte array, to be used when parsing input from the user
+     *
+     * @param s
+     * @return
+     */
+    public static byte[] toByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
+    /**
+     * Decrypt a byte message
+     *
+     * @param message - byte array containing the ciphertext
+     * @param key - Key to be used
+     * @param mode - either CBC or CBF
      * @return
      * @throws InvalidKeyException
-     * @throws InvalidAlgorithmParameterException 
+     * @throws InvalidAlgorithmParameterException
      */
-    public String decrypt(byte[] message, String key, String mode, byte [] iv) throws InvalidKeyException, InvalidAlgorithmParameterException {
+    public String decrypt(byte[] message, String key, String mode, byte[] iv) throws InvalidKeyException, InvalidAlgorithmParameterException {
 
         Cipher cipher = null;
         try {
@@ -247,15 +251,9 @@ public class AES {
         } catch (IllegalBlockSizeException | BadPaddingException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
-        System.out.println("Decrypted: " + new String(decrypted) +"\n");
+        System.out.println();
+        System.out.println("Decrypted: " + new String(decrypted) + "\n");
         return new String(decrypted);
-    }
-
-    public void demoEncryption() {
-
-        String message = "This string contains a secret message.";
-        System.out.println("Plaintext: " + message + "\n");
-
     }
 
 }

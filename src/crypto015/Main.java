@@ -22,6 +22,12 @@ public class Main {
      */
     public static void main(String[] args) {
         AES aes = new AES();
+        System.out.println("***************************************************************");
+        System.out.println("*  CRYTPO - An AES Java implementation with CBC/CFB modes     *");
+        System.out.println("*                                                             *");
+        System.out.println("*       Author: Ettore Ciprian - cipettaro@gmail.com          *");
+        System.out.println("***************************************************************");
+
         switch (args[0]) {
 
             case "--generate-key":
@@ -42,14 +48,6 @@ public class Main {
 
                 }
 
-                break;
-            case "--read-key":
-                if (args.length < 2) {
-                    System.err.println("Please provide the key path");
-                    System.exit(1);
-                } else {
-                    aes.loadKeyfromFile(Paths.get(args[1]).toFile());
-                }
                 break;
             case "--encrypt":
                 if (args.length < 3) {
@@ -88,12 +86,11 @@ public class Main {
                                     break;
                                 }
                                 default:
-                                    System.err.println("Please provide a valid ncryption mode (CBC|CFB)! Program terminating..");
+                                    System.err.println("Please provide a valid encryption mode (CBC|CFB)! Program terminating..");
                                     System.exit(1);
                             }
                             Path outputPath = Paths.get(args[2]);
-                            Files.createFile(outputPath);
-                            FileOutputStream outStream = new FileOutputStream(outputPath.toFile());
+                            FileOutputStream outStream = new FileOutputStream(outputPath.toFile(), true);
                             outStream.write(out);
                             outStream.close();
                         } catch (InvalidKeyException | InvalidAlgorithmParameterException | IOException ex) {
@@ -147,10 +144,12 @@ public class Main {
                                     System.exit(1);
                             }
                             Path outputPath = Paths.get(args[2]);
-                            Files.createFile(outputPath);
-                            FileOutputStream outStream = new FileOutputStream(outputPath.toFile());
-                            outStream.write(out.getBytes());
-                            outStream.close();
+                            if (!outputPath.toFile().exists()) {
+                                Files.createFile(outputPath);
+                            }
+                            try (FileOutputStream outStream = new FileOutputStream(outputPath.toFile(), true)) {
+                                outStream.write(out.getBytes());
+                            }
                         } catch (InvalidKeyException | InvalidAlgorithmParameterException | IOException ex) {
                             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -163,13 +162,12 @@ public class Main {
                 System.exit(1);
 
         }
-        System.out.println();
         System.exit(0);
 
     }
 
     /**
-     * Read file to single String
+     * Read file to a single String
      *
      * @param path
      * @param encoding
@@ -182,6 +180,14 @@ public class Main {
         return new String(encoded, encoding);
     }
 
+    /**
+     * *
+     * Read a byte file
+     *
+     * @param path
+     * @return
+     * @throws IOException
+     */
     private static byte[] readFile(String path)
             throws IOException {
 
