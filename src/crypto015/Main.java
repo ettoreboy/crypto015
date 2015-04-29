@@ -90,8 +90,8 @@ public class Main {
                                     System.exit(1);
                             }
                             Path outputPath = Paths.get(args[2]);
-                            if(outputPath.toFile().exists()){
-                               outputPath.toFile().delete();
+                            if (outputPath.toFile().exists()) {
+                                outputPath.toFile().delete();
                             }
                             FileOutputStream outStream = new FileOutputStream(outputPath.toFile(), true);
                             outStream.write(out);
@@ -149,7 +149,7 @@ public class Main {
                             Path outputPath = Paths.get(args[2]);
                             if (!outputPath.toFile().exists()) {
                                 Files.createFile(outputPath);
-                            }else {
+                            } else {
                                 outputPath.toFile().delete();
                             }
                             try (FileOutputStream outStream = new FileOutputStream(outputPath.toFile(), true)) {
