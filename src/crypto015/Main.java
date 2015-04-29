@@ -146,6 +146,8 @@ public class Main {
                             Path outputPath = Paths.get(args[2]);
                             if (!outputPath.toFile().exists()) {
                                 Files.createFile(outputPath);
+                            }else {
+                                outputPath.toFile().delete();
                             }
                             try (FileOutputStream outStream = new FileOutputStream(outputPath.toFile(), true)) {
                                 outStream.write(out.getBytes());

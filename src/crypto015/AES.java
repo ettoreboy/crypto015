@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -70,11 +71,11 @@ public class AES {
     }
 
     /**
-     * Encrytp message given
+     * Encrypt message given
      *
      * @param message - Input text to be encrypted
      * @param key - Key for encryption
-     * @param mode -
+     * @param mode - either CBC or CFB
      * @return
      * @throws InvalidKeyException
      * @throws InvalidAlgorithmParameterException
@@ -96,7 +97,7 @@ public class AES {
                     System.out.println("Random generated vector for CFB: " + toHex(iv) + "\nSave it somewhere safe!");
                     cipher = Cipher.getInstance("AES/CFB/PKCS5Padding");
                     break;
-                default:
+
             }
 
         } catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {
@@ -252,8 +253,8 @@ public class AES {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
         System.out.println();
-        System.out.println("Decrypted: " + new String(decrypted) + "\n");
-        return new String(decrypted);
+        System.out.println("Decrypted: " + new String(decrypted, Charset.defaultCharset()) + "\n");
+        return new String(decrypted, Charset.defaultCharset());
     }
 
 }
