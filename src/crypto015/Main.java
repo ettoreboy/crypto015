@@ -90,6 +90,9 @@ public class Main {
                                     System.exit(1);
                             }
                             Path outputPath = Paths.get(args[2]);
+                            if(outputPath.toFile().exists()){
+                               outputPath.toFile().delete();
+                            }
                             FileOutputStream outStream = new FileOutputStream(outputPath.toFile(), true);
                             outStream.write(out);
                             outStream.close();
