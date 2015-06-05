@@ -112,12 +112,6 @@ public class Main {
                     System.err.println("Please provide valid paths! Program terminating..");
                     System.exit(1);
                 } else {
-                    byte[] in = null;
-                    try {
-                        in = readFile(args[1]);
-                    } catch (IOException ex) {
-                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-                    }
                     if (args[3] == null) {
                         System.err.println("Please provide valid key path! Program terminating..");
                         System.exit(1);
@@ -131,15 +125,18 @@ public class Main {
                             System.exit(1);
                         }
                         try {
+                            byte[] in = null;
+                           
                             switch (args[4]) {
                                 case "CBC": {
+                                    in = readFile(args[1], args[4], null);
                                     out = aes.decrypt(in, key, "CBC", null);
                                     break;
                                 }
                                 case "CFB": {
-                                    if (args[5] != null) {
-                                        out = aes.decrypt(in, key, "CFB", AES.toByteArray(args[5]));
-                                    }
+                                     byte[] iv = new byte[16];
+                                    in = readFile(args[1], "CFB", iv);
+                                    out = aes.decrypt(in, key, "CFB", iv);
                                     break;
                                 }
                                 default:
@@ -168,7 +165,6 @@ public class Main {
 
         }
         System.exit(0);
-
     }
 
     /**
@@ -182,20 +178,34 @@ public class Main {
     private static String readFile(String path, Charset encoding)
             throws IOException {
         byte[] encoded = Files.readAllBytes(Paths.get(path));
+        System.out.println("Key: " + new String(encoded, encoding));
         return new String(encoded, encoding);
     }
 
     /**
      * *
-     * Read a byte file
+     * Read a cipher file
      *
      * @param path
      * @return
      * @throws IOException
      */
-    private static byte[] readFile(String path)
-            throws IOException {
+    private static byte[] readFile(String path, String mode, byte[] iv) throws IOException {
+        byte[] encoded = Files.readAllBytes(Paths.get(path));
+        //System.out.println("Normal cipher : " + AES.toHex(encoded));
+        if ("CFB".equals(mode)) {
+            int y = 0;
+            for (int i = encoded.length - 16; y < 16; i++) {
+                iv[y] = encoded[i];
+                y++;
+            }
+           
+            byte[] encoded_shrinked = new byte[encoded.length-16];
+            System.arraycopy(encoded, 0, encoded_shrinked, 0, encoded.length-16);
+            //System.out.println("Shrinked array: " + AES.toHex(encoded_shrinked));
+            return encoded_shrinked;
+        }
 
-        return Files.readAllBytes(Paths.get(path));
+        return encoded;
     }
 }

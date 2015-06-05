@@ -58,6 +58,7 @@ public class AES {
      * @param {int} size of the key
      * @return SecretKey
      */
+
     private SecretKey generateKey() {
         KeyGenerator keyGen = null;
         try {
@@ -81,6 +82,7 @@ public class AES {
      * @throws InvalidAlgorithmParameterException
      */
     public byte[] encrypt(String message, String key, String mode) throws InvalidKeyException, InvalidAlgorithmParameterException {
+        byte[] encrypted = null;
         byte[] iv = new byte[16];//Initialization vector
 
         Cipher cipher = null;
@@ -93,8 +95,8 @@ public class AES {
                     break;
                 case "CFB":
                     System.out.println("ENCRYPTION MODE: Chaining Feedback");
-                    iv = (new SecureRandom()).generateSeed(16);
-                    System.out.println("Random generated vector for CFB: " + toHex(iv) + "\nSave it somewhere safe!");
+                    (new SecureRandom()).nextBytes(iv);
+                    System.out.println("Random generated vector for CFB: " + toHex(iv));
                     cipher = Cipher.getInstance("AES/CFB/PKCS5Padding");
                     break;
 
@@ -110,13 +112,24 @@ public class AES {
         IvParameterSpec ivspec = new IvParameterSpec(iv);
         cipher.init(Cipher.ENCRYPT_MODE, originalKey, ivspec);
 
-        byte[] encrypted = null;
         try {
             encrypted = cipher.doFinal(message.getBytes());
         } catch (IllegalBlockSizeException | BadPaddingException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
         System.out.println("Ciphertext: " + toHex(encrypted) + "\n");
+        
+        if("CFB".equals(mode)){
+            //Append IV parameter at the end of the encrypted message
+            int y = 0;
+            byte [] new_encrypted = new byte [encrypted.length+16];
+            System.arraycopy(encrypted, 0, new_encrypted, 0, encrypted.length);
+             for(int i = new_encrypted.length-16; i < new_encrypted.length; i++){
+                        new_encrypted[i] = iv[y];
+                        y++;
+                    }
+             return new_encrypted;
+        }
         return encrypted;
     }
 
@@ -218,6 +231,7 @@ public class AES {
      * @param message - byte array containing the ciphertext
      * @param key - Key to be used
      * @param mode - either CBC or CBF
+     * @param iv
      * @return
      * @throws InvalidKeyException
      * @throws InvalidAlgorithmParameterException
@@ -232,7 +246,7 @@ public class AES {
                     cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");//Use PKCS5Padding to handle input not mutiple of 16
                     break;
                 case "CFB":
-                    cipher = Cipher.getInstance("AES/CFB/PKCS5Padding");
+                    cipher = Cipher.getInstance("AES/CFB/NoPadding");
                     break;
             }
 
