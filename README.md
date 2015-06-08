@@ -26,9 +26,10 @@ java -jar crypto015.jar [OPTION...]
   *KEY_PATH* - Path to file containing the key for encryption
 
   *MODE* - Chaining mode. Either "CBC" or "CFB".
-    **NOTE:** If CFB is selected, a random initializiation vector will be provided.
-  Example usage: ``` ---encrypt C:\\Path\to\File.txt C:\\Output.txt C:\\key.txt CBC```
-+ ``` --decrypt INPUT_PATH OUTPUT_PATH KEY_PATH MODE [IV]```
+   
+  **Example usage** ``` ---encrypt C:\\Path\to\File.txt C:\\Output.txt C:\\key.txt CBC```
+
++ ``` --decrypt INPUT_PATH OUTPUT_PATH KEY_PATH MODE```
 
    Decrypt a message given a key to an output text
 
@@ -40,4 +41,4 @@ java -jar crypto015.jar [OPTION...]
 
    *MODE* Mode for decryption, either CBC or CFB
 
-   *IV* (Optional) **NOTE:** If CFB was selected you must give the 16bit initialization vector (randomly generated during encryption).  
+ **Example usage** ``` ---decrypt C:\\Path\to\CipherFile C:\\Output.txt C:\\key.txt CBC```
