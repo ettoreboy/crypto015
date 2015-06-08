@@ -11,6 +11,9 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
@@ -58,7 +61,6 @@ public class AES {
      * @param {int} size of the key
      * @return SecretKey
      */
-
     private SecretKey generateKey() {
         KeyGenerator keyGen = null;
         try {
@@ -77,60 +79,182 @@ public class AES {
      * @param message - Input text to be encrypted
      * @param key - Key for encryption
      * @param mode - either CBC or CFB
-     * @return
+     * @return cipher text in a byte array
      * @throws InvalidKeyException
      * @throws InvalidAlgorithmParameterException
+     * @throws javax.crypto.NoSuchPaddingException
+     * @throws java.security.NoSuchAlgorithmException
      */
-    public byte[] encrypt(String message, String key, String mode) throws InvalidKeyException, InvalidAlgorithmParameterException {
-        byte[] encrypted = null;
+    public byte[] encrypt(String message, String key, String mode) throws InvalidKeyException, InvalidAlgorithmParameterException, NoSuchPaddingException, NoSuchAlgorithmException {
+        byte[][] encrypted = null;
         byte[] iv = new byte[16];//Initialization vector
+        Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");//Standard AES encryption initialization
+        System.out.println("Key: "+key);
+        System.out.println("Plain Text: "+message);
+        byte[] encodedKey = toByteArray(key);
+        SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
+        IvParameterSpec ivspec = null;
 
-        Cipher cipher = null;
-        try {
+        try { 
             switch (mode) {
                 case "CBC":
                     System.out.println("ENCRYPTION MODE: Chaining Block Cipher");
                     iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-                    cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");//Use PKCS5Padding to handle input not mutiple of 16
+                   
+                    cipher.init(Cipher.ENCRYPT_MODE, originalKey);
+                    byte[][] pt = divideString(message, 16);
+                    encrypted = new byte [pt.length][16];
+                    encrypted[0] = cipher.doFinal(xor(pt[0], iv));//First xor with IV parameter
+                    
+                    for (int i = 1; i<pt.length; i++){
+                        encrypted[i]=cipher.doFinal(xor(pt[i], encrypted[i-1]));//Encrypt block with xor of the previous
+                    }
+
                     break;
                 case "CFB":
                     System.out.println("ENCRYPTION MODE: Chaining Feedback");
                     (new SecureRandom()).nextBytes(iv);
                     System.out.println("Random generated vector for CFB: " + toHex(iv));
                     cipher = Cipher.getInstance("AES/CFB/PKCS5Padding");
-                    break;
+                    ivspec = new IvParameterSpec(iv);
+                    cipher.init(Cipher.ENCRYPT_MODE, originalKey, ivspec);
 
+                    try {
+                        encrypted[0] = cipher.doFinal(message.getBytes());
+                    } catch (IllegalBlockSizeException | BadPaddingException ex) {
+                        Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    break;
+            }
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {
+            Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IllegalBlockSizeException ex) {
+            Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (BadPaddingException ex) {
+            Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        if ("CFB".equals(mode)) {
+            //Append IV parameter at the end of the encrypted message
+            int y = 0;
+            byte[] new_encrypted = new byte[encrypted.length + 16];
+            System.arraycopy(encrypted, 0, new_encrypted, 0, encrypted.length);
+            for (int i = new_encrypted.length - 16; i < new_encrypted.length; i++) {
+                new_encrypted[i] = iv[y];
+                y++;
+            }
+            return new_encrypted;
+        }
+        System.out.println("Last Block: " + toHex(encrypted[encrypted.length-1]));
+        System.out.println("Ciphertext: " + toHex(flatten(encrypted)) + "\n");
+        return flatten(encrypted);
+    }
+
+    /**
+     * Decrypt a byte message
+     *
+     * @param message - byte array containing the ciphertext
+     * @param key - Key to be used
+     * @param mode - either CBC or CBF
+     * @param iv
+     * @return
+     * @throws InvalidKeyException
+     * @throws InvalidAlgorithmParameterException
+     */
+    public String decrypt(byte[] message, String key, String mode, byte[] iv) throws InvalidKeyException, InvalidAlgorithmParameterException {
+
+        Cipher cipher = null;
+        byte[] encodedKey = toByteArray(key);
+        SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
+        System.out.println("Key: "+key);
+        
+        try {
+            switch (mode) {
+                case "CBC":
+                    iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+                    cipher = Cipher.getInstance("AES/CBC/NoPadding");
+                    break;
+                case "CFB":
+                    cipher = Cipher.getInstance("AES/CFB/NoPadding");
+                    break;
             }
 
         } catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        byte[] encodedKey = toByteArray(key);
-
-        SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
         IvParameterSpec ivspec = new IvParameterSpec(iv);
-        cipher.init(Cipher.ENCRYPT_MODE, originalKey, ivspec);
+        cipher.init(Cipher.DECRYPT_MODE, originalKey, ivspec);
 
+        byte[] decrypted = null;
         try {
-            encrypted = cipher.doFinal(message.getBytes());
+            decrypted = cipher.doFinal(message);
         } catch (IllegalBlockSizeException | BadPaddingException ex) {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
-        System.out.println("Ciphertext: " + toHex(encrypted) + "\n");
-        
-        if("CFB".equals(mode)){
-            //Append IV parameter at the end of the encrypted message
-            int y = 0;
-            byte [] new_encrypted = new byte [encrypted.length+16];
-            System.arraycopy(encrypted, 0, new_encrypted, 0, encrypted.length);
-             for(int i = new_encrypted.length-16; i < new_encrypted.length; i++){
-                        new_encrypted[i] = iv[y];
-                        y++;
-                    }
-             return new_encrypted;
+        System.out.println();
+        System.out.println("Decrypted: " + new String(decrypted, Charset.defaultCharset()) + "\n");
+        return new String(decrypted, Charset.defaultCharset());
+    }
+
+    /**
+     * *
+     * Divide String message into byte array blocks
+     *
+     * @param message
+     * @param block_size
+     * @return
+     */
+    private byte[][] divideString(String message, int block_size) {
+        byte[] source = message.getBytes();
+        byte[][] ret = new byte[(int) Math.ceil(source.length / (double) block_size)][block_size];
+
+        int start = 0;
+        for (int i = 0; i < ret.length; i++) {
+            ret[i] = Arrays.copyOfRange(source, start, start + block_size);
+            start += block_size;
         }
-        return encrypted;
+
+        return ret;
+    }
+
+    /**
+     * *
+     * Flatten 2D blocks arrays
+     *
+     * @param arr
+     * @return
+     */
+    private byte[] flatten(byte[][] arr) {
+        List<Byte> list = new ArrayList<Byte>();
+        for (int i = 0; i < arr.length; i++) {        
+            for (int j = 0; j < arr[i].length; j++) {    
+                list.add(arr[i][j]);
+            }
+        }
+        
+       byte[] vector = new byte[list.size()];
+        for (int i = 0; i < vector.length; i++) {
+            vector[i] = list.get(i);
+        }
+        return vector;
+    }
+
+    /**
+     * Xor function for two array of bytes
+     *
+     * @param array_1
+     * @param array_2
+     * @return
+     */
+    private byte[] xor(byte[] array_1, byte[] array_2) {
+        byte[] result = new byte[array_1.length];
+
+        int i = 0;
+        for (byte b : array_1) {
+            result[i] = (byte) (b ^ array_2[i++]);
+        }
+        return result;
     }
 
     /**
@@ -223,52 +347,6 @@ public class AES {
                     + Character.digit(s.charAt(i + 1), 16));
         }
         return data;
-    }
-
-    /**
-     * Decrypt a byte message
-     *
-     * @param message - byte array containing the ciphertext
-     * @param key - Key to be used
-     * @param mode - either CBC or CBF
-     * @param iv
-     * @return
-     * @throws InvalidKeyException
-     * @throws InvalidAlgorithmParameterException
-     */
-    public String decrypt(byte[] message, String key, String mode, byte[] iv) throws InvalidKeyException, InvalidAlgorithmParameterException {
-
-        Cipher cipher = null;
-        try {
-            switch (mode) {
-                case "CBC":
-                    iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-                    cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");//Use PKCS5Padding to handle input not mutiple of 16
-                    break;
-                case "CFB":
-                    cipher = Cipher.getInstance("AES/CFB/NoPadding");
-                    break;
-            }
-
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {
-            Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        byte[] encodedKey = toByteArray(key);
-
-        SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
-        IvParameterSpec ivspec = new IvParameterSpec(iv);
-        cipher.init(Cipher.DECRYPT_MODE, originalKey, ivspec);
-
-        byte[] decrypted = null;
-        try {
-            decrypted = cipher.doFinal(message);
-        } catch (IllegalBlockSizeException | BadPaddingException ex) {
-            Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        System.out.println();
-        System.out.println("Decrypted: " + new String(decrypted, Charset.defaultCharset()) + "\n");
-        return new String(decrypted, Charset.defaultCharset());
     }
 
 }
