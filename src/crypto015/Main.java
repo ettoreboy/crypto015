@@ -25,7 +25,7 @@ public class Main {
     public static void main(String[] args) {
         AES aes = new AES();
         System.out.println("***************************************************************");
-        System.out.println("*  CRYTPO - An AES Java implementation with CBC/CFB modes     *");
+        System.out.println("*  JCRYTPO - An AES Java implementation with CBC/CFB modes    *");
         System.out.println("*                                                             *");
         System.out.println("*       Author: Ettore Ciprian - cipettaro@gmail.com          *");
         System.out.println("***************************************************************");
@@ -197,7 +197,6 @@ public class Main {
      */
     private static byte[] readFile(String path, String mode, byte[] iv) throws IOException {
         byte[] encoded = Files.readAllBytes(Paths.get(path));
-        //System.out.println("Normal cipher : " + AES.toHex(encoded));
         if ("CFB".equals(mode)) {
             int y = 0;
             for (int i = encoded.length - 16; y < 16; i++) {
@@ -207,10 +206,9 @@ public class Main {
            
             byte[] encoded_shrinked = new byte[encoded.length-16];
             System.arraycopy(encoded, 0, encoded_shrinked, 0, encoded.length-16);
-            //System.out.println("Shrinked array: " + AES.toHex(encoded_shrinked));
+            
             return encoded_shrinked;
         }
-
         return encoded;
     }
 }

@@ -88,20 +88,21 @@ public class AES {
      */
     public byte[] encrypt(String message, String key, String mode) throws InvalidKeyException, InvalidAlgorithmParameterException, NoSuchPaddingException, NoSuchAlgorithmException {
 
-        byte[] iv = new byte[16];//Initialization vector
-        Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");//Standard AES encryption initialization
+        byte[] iv = new byte[16];//Initialization vector 
         System.out.println("Key: " + key);
         System.out.println("Plain Text: " + message);
         byte[] encodedKey = toByteArray(key);
         SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
         IvParameterSpec ivspec = null;
         byte[] f_encrypted = null;
-        byte[][] pt = padString(message, 16); //Store plain text in block of 16 bytes
-        byte[][] encrypted = new byte[pt.length][16];
+        byte[][] pt, encrypted = null;  //Store plain text in block of 16 bytes
 
         try {
+            Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");//Standard AES encryption initialization
             switch (mode) {
                 case "CBC":
+                    pt = padString(message, 16); //Store plain text in block of 16 bytes
+                    encrypted = new byte[pt.length][16];
                     System.out.println("ENCRYPTION MODE: Chaining Block Cipher");
                     iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
                     cipher.init(Cipher.ENCRYPT_MODE, originalKey);
@@ -118,15 +119,17 @@ public class AES {
                         temp = flatten(encrypted);
                         f_encrypted = new byte[message.getBytes().length];
                         System.arraycopy(temp, 0, f_encrypted, 0, f_encrypted.length);//Truncate to original length of plain text
-                        
+
                     } else {
                         f_encrypted = flatten(encrypted);
                     }
 
                     break;
                 case "CFB":
+                    pt = padString(message, 16); //Store plain text in block of 16 bytes
+                    encrypted = new byte[pt.length][16];
                     System.out.println("ENCRYPTION MODE: Chaining Feedback");
-                    (new SecureRandom()).nextBytes(iv);
+                    iv = (new SecureRandom()).generateSeed(16);
                     System.out.println("Random generated vector for CFB: " + toHex(iv));
                     cipher.init(Cipher.ENCRYPT_MODE, originalKey);
 
@@ -134,9 +137,11 @@ public class AES {
                     for (int i = 1; i < pt.length; i++) {
                         encrypted[i] = xor(pt[i], cipher.doFinal(encrypted[i - 1]));//Encrypt block with xor of the previous
                     }
+                    byte[] temp = flatten(encrypted);
+                    f_encrypted = new byte[message.getBytes().length];
+                    System.arraycopy(temp, 0, f_encrypted, 0, f_encrypted.length);//Truncate to original length of plain text
 
-                    f_encrypted = flatten(encrypted);
-
+                    //f_encrypted = flatten(encrypted);
                     //Append IV parameter at the end of the encrypted message
                     int y = 0;
                     byte[] new_encrypted = new byte[f_encrypted.length + 16];
@@ -154,8 +159,6 @@ public class AES {
         }
 
         System.out.println("Cipher length: " + f_encrypted.length + " bytes");
-        //System.out.println("Last Block: " + toHex(encrypted[encrypted.length - 1]));
-        //System.out.println("Ciphertext: " + toHex(flatten(encrypted)) + "\n");
         return f_encrypted;
     }
 
@@ -179,22 +182,21 @@ public class AES {
         SecretKey originalKey = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
         System.out.println("Key: " + key);
 
-        ct = padBytes(message, 16); //Store cipher text in block of 16 bytes
-        decrypted = new byte[ct.length][16];
-
         try {
             cipher = Cipher.getInstance("AES/ECB/NoPadding");
             switch (mode) {
                 case "CBC":
-                    iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};               
+                    ct = padBytes(message, 16); //Store cipher text in block of 16 bytes
+                    decrypted = new byte[ct.length][16];
+                    iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
                     cipher.init(Cipher.DECRYPT_MODE, originalKey);
                     int n = (message.length % 16);
                     //CBC stealing - https://en.wikipedia.org/wiki/Ciphertext_stealing#CBC_ciphertext_stealing_decryption_using_a_standard_CBC_interface
                     if (n != 0) {
                         //Decrypt second-to-last cipher text block
-                        byte temp[] = xor(cipher.doFinal(ct[ct.length - 2]), ct[ct.length-1]);
+                        byte temp[] = xor(cipher.doFinal(ct[ct.length - 2]), ct[ct.length - 1]);
                         //Pad last cipher text block with last n bytes of decrypted temp
-                        while (n < 16) {                          
+                        while (n < 16) {
                             ct[ct.length - 1][n] = temp[n];
                             n++;
                         }
@@ -208,7 +210,7 @@ public class AES {
                     for (int i = 1; i < ct.length; i++) {
                         decrypted[i] = xor(cipher.doFinal(ct[i]), ct[i - 1]);
                     }
-                    
+
                     if ((message.length % 16) != 0) {
                         byte[] temp = flatten(decrypted);
                         f_decrypted = new byte[message.length];
@@ -220,7 +222,8 @@ public class AES {
                     break;
 
                 case "CFB":
-                    /*This should work, but it doesn't!
+                    ct = padBytes(message, 16); //Store cipher text in block of 16 bytes
+                    
                     cipher = Cipher.getInstance("AES/CFB/NoPadding");
                     cipher.init(Cipher.DECRYPT_MODE, originalKey, new IvParameterSpec(iv));
                      {
@@ -232,17 +235,22 @@ public class AES {
                             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     }
-                      */
-                   
-                     
-                     cipher.init(Cipher.DECRYPT_MODE, originalKey);
-                     decrypted[0] = xor(ct[0], cipher.doFinal(iv));//First xor with IV parameter
-                     for (int i = 1; i < ct.length; i++) {
-                     decrypted[i] = xor(ct[i] , cipher.update(ct[i - 1]));
+
+                    /*This should work, but it doesn't!
+                     decrypted = new byte[ct.length][16];
+
+                     cipher.init(Cipher.DECRYPT_MODE, originalKey , new IvParameterSpec(iv));
+                     decrypted[0] = xor(cipher.doFinal(iv), ct[0]);//First xor with IV parameter
+                     for (int i = 1; i < decrypted.length; i++) {
+                     decrypted[i] = xor(ct[i], cipher.doFinal(ct[i - 1]));
                      }
-                   
+
                      f_decrypted = flatten(decrypted);
+                     */
                      
+                    byte[] temp = f_decrypted; 
+                    f_decrypted = new byte [message.length];
+                    System.arraycopy(temp, 0, f_decrypted, 0, message.length);//Truncate to original length of plain text
                     break;
             }
 
@@ -254,9 +262,10 @@ public class AES {
             Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+        String decryptedMessage = new String(f_decrypted, Charset.forName("UTF-8"));
         System.out.println();
         System.out.println("Cipher decrypted! Bytes of plain text: " + f_decrypted.length + "");
-        System.out.println("Message: " + new String(f_decrypted, Charset.defaultCharset()) + "\n");
+        System.out.println("Message: " + decryptedMessage + "\n");
         return new String(f_decrypted, Charset.defaultCharset());
     }
 
@@ -270,7 +279,7 @@ public class AES {
      */
     private byte[][] padString(String message, int block_size) {
         byte[] source = message.getBytes();
-        int len = source.length % 16;
+        int len = source.length % block_size;
 
         byte[][] ret = new byte[(int) Math.ceil(source.length / (double) block_size)][block_size];
 
@@ -282,7 +291,7 @@ public class AES {
 
         if (source.length % block_size != 0) {
             try {
-                padWithLen(ret[ret.length - 1], len, 16 - len);
+                padWithLen(ret[ret.length - 1], len, block_size - len);
             } catch (ShortBufferException ex) {
                 Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -303,7 +312,7 @@ public class AES {
      */
     private byte[][] padBytes(byte[] source, int block_size) {
         byte[][] ret = new byte[(int) Math.ceil(source.length / (double) block_size)][block_size];
-        int len = source.length % 16;
+        int len = source.length % block_size;
         int start = 0;
         for (int i = 0; i < ret.length; i++) {
             ret[i] = Arrays.copyOfRange(source, start, start + block_size);
@@ -312,7 +321,7 @@ public class AES {
 
         if (source.length % block_size != 0) {
             try {
-                padWithLen(ret[ret.length - 1], len, 16 - len);
+                padWithLen(ret[ret.length - 1], len, block_size - len);
             } catch (ShortBufferException ex) {
                 Logger.getLogger(AES.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -326,7 +335,7 @@ public class AES {
      * *
      * Flatten 2D arrays in a 1D array
      *
-     * @param arr - the 2D input array 
+     * @param arr - the 2D input array
      * @return
      */
     private byte[] flatten(byte[][] arr) {
